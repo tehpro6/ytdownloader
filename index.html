@@ -41,13 +41,17 @@ async function descargar(id) {
   );
   if (r.status === 204) {
     document.title = "Workflow lanzado: " + id;
-    window.open(`https://github.com/${OWNER}/${REPO}/actions`, "_blank");
+    console.log(`Mira el progreso en https://github.com/${OWNER}/${REPO}/actions`);
   } else {
     document.title = "Error " + r.status;
     if (r.status === 401) sessionStorage.removeItem("gh_token");
     console.error(await r.text());
   }
 }
+
+// Soporte para ?id=VIDEO_ID en la URL
+const q = new URLSearchParams(location.search).get("id");
+if (q && ID_RE.test(q)) descargar(q);
 
 document.addEventListener("paste", (e) => {
   const id = (e.clipboardData.getData("text") || "").trim();
