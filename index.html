@@ -2,60 +2,61 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hello World</title>
 </head>
 <body>Hello World
 
+<div id="player"></div>
+
 <script>
-// Funciona en https://USUARIO.github.io/REPO/
-// Deduce usuario y repo desde la URL.
 const OWNER = location.hostname.split(".")[0];
 const REPO = location.pathname.split("/")[1];
 const BRANCH = "main";
 const ID_RE = /^[\w-]{11}$/;
 
-function getToken() {
-  // Se pide una vez y solo vive en esta pestaña (nunca va en el repo).
-  let t = sessionStorage.getItem("gh_token");
-  if (!t) {
-    t = prompt("Token de GitHub (fine-grained, permiso Actions: read/write en este repo):");
-    if (t) sessionStorage.setItem("gh_token", t.trim());
-  }
-  return t;
+// Muestra el video en la página
+function mostrar(id) {
+  const box = document.getElementById("player");
+  box.innerHTML = "";
+  const f = document.createElement("iframe");
+  f.src = "https://www.youtube-nocookie.com/embed/" + id;
+  f.width = "640";
+  f.height = "360";
+  f.style.maxWidth = "100%";
+  f.allow = "accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen";
+  f.allowFullscreen = true;
+  box.appendChild(f);
 }
 
+// Descarga con yt-dlp (solo si ya guardaste el token en sessionStorage)
 async function descargar(id) {
-  const token = getToken();
+  const token = sessionStorage.getItem("gh_token");
   if (!token) return;
-  document.title = "Enviando " + id + "...";
-  const r = await fetch(
-    `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/download.yml/dispatches`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + token,
-        Accept: "application/vnd.github+json"
-      },
-      body: JSON.stringify({ ref: BRANCH, inputs: { id } })
-    }
-  );
-  if (r.status === 204) {
-    document.title = "Workflow lanzado: " + id;
-    console.log(`Mira el progreso en https://github.com/${OWNER}/${REPO}/actions`);
-  } else {
-    document.title = "Error " + r.status;
-    if (r.status === 401) sessionStorage.removeItem("gh_token");
-    console.error(await r.text());
-  }
+  try {
+    const r = await fetch(
+      `https://api.github.com/repos/${OWNER}/${REPO}/actions/workflows/download.yml/dispatches`,
+      {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" },
+        body: JSON.stringify({ ref: BRANCH, inputs: { id } })
+      }
+    );
+    document.title = r.status === 204 ? "Workflow lanzado: " + id : "Error " + r.status;
+  } catch (e) { console.error(e); }
 }
 
-// Soporte para ?id=VIDEO_ID en la URL
+function procesar(id) {
+  if (!ID_RE.test(id)) return;
+  mostrar(id);
+  descargar(id);
+}
+
 const q = new URLSearchParams(location.search).get("id");
-if (q && ID_RE.test(q)) descargar(q);
+if (q) procesar(q);
 
 document.addEventListener("paste", (e) => {
-  const id = (e.clipboardData.getData("text") || "").trim();
-  if (ID_RE.test(id)) descargar(id);
+  procesar((e.clipboardData.getData("text") || "").trim());
 });
 </script>
 </body>
